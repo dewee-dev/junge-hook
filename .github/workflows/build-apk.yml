@@ -48,11 +48,11 @@ jobs:
 
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # AGP 8.7.3 要求 JDK 17
       - name: 配置 JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -78,7 +78,7 @@ jobs:
       # 仓库里的 gradle-wrapper.properties 指向本机 G: 盘离线包，
       # 且缺少 gradlew（Unix 脚本），所以这里固定 Gradle 版本直接调用 gradle 命令。
       - name: 配置 Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: ${{ env.GRADLE_VERSION }}
 
@@ -137,27 +137,42 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
-          find app/build/outputs/apk -name '*.apk' -type f -exec cp {} out/ \;
-          ls -lh out
-          if [ -z "$(ls -A out)" ]; then
+          : > rows.md
+          count=0
+          while IFS= read -r f; do
+            base=$(basename "$f")
+            # 没配签名密钥时 release 是未签名包，而 outputFileName 覆盖会丢掉 AGP
+            # 默认的 -unsigned 后缀 —— 装不上却看不出原因，这里补回来。
+            if unzip -l "$f" 2>/dev/null | grep -qE 'META-INF/[^/]+\.(RSA|DSA|EC)'; then
+              out_name="$base"; state="已签名"
+            else
+              out_name="${base%.apk}-unsigned.apk"; state="**未签名**"
+              echo "::warning title=未签名 APK::${base} 没有签名，已重命名为 ${out_name}"
+            fi
+            cp "$f" "out/$out_name"
+            printf '| `%s` | %s | %s | `%s…` |\n' \
+              "$out_name" "$(du -h "$f" | cut -f1)" "$state" "$(sha256sum "$f" | cut -c1-16)" >> rows.md
+            count=$((count + 1))
+          done < <(find app/build/outputs/apk -name '*.apk' -type f | sort)
+
+          if [ "$count" -eq 0 ]; then
             echo "::error title=未产出 APK::构建成功但没有找到 APK 文件"
             exit 1
           fi
-          echo "apk_count=$(ls -1 out/*.apk | wc -l)" >> "$GITHUB_OUTPUT"
+          ls -lh out
+          echo "apk_count=${count}" >> "$GITHUB_OUTPUT"
           {
             echo "## 构建产物"
             echo
-            echo "| 文件 | 大小 | SHA256 |"
-            echo "| --- | --- | --- |"
-            for f in out/*.apk; do
-              echo "| \`$(basename "$f")\` | $(du -h "$f" | cut -f1) | \`$(sha256sum "$f" | cut -c1-16)…\` |"
-            done
+            echo "| 文件 | 大小 | 签名 | SHA256 |"
+            echo "| --- | --- | --- | --- |"
+            cat rows.md
             echo
             echo "构建类型：\`${{ inputs.build_type }}\` ・ 提交：\`${GITHUB_SHA::7}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 上传 APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apk-${{ inputs.build_type }}-${{ github.run_number }}
           path: out/*.apk
