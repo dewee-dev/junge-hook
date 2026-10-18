@@ -32,6 +32,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # 与项目 AGP 8.7.3 配套的 Gradle 版本。
+  # 运行页会提示 "Gradle 8.11.1 is out of date"：只要还在 8.x 线就一定会提示
+  # （最新是 9.x，落后一个大版本），annotation 无法关闭，详见 README。
+  # 升级到 9.x 必须连带 AGP 9 + Kotlin/KSP/Hilt/Compose 一起动，属于大版本迁移。
   GRADLE_VERSION: '8.11.1'
   ANDROID_COMPILE_SDK: '36'
   ANDROID_BUILD_TOOLS: '35.0.0'
