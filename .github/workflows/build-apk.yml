@@ -129,7 +129,7 @@ jobs:
             *)       TASKS=":app:assembleDebug :app:assembleRelease" ;;
           esac
           echo "执行：gradle ${TASKS}"
-          gradle ${TASKS} --stacktrace --info \
+          gradle ${TASKS} --stacktrace \
             --init-script .github/ci/ci-repos.init.gradle
 
       - name: 收集产物
