@@ -116,7 +116,8 @@ jobs:
 
       - name: 运行单元测试
         if: inputs.run_tests
-        run: gradle :app:testDebugUnitTest --stacktrace \
+        run: |
+          gradle :app:testDebugUnitTest --stacktrace \
             --init-script .github/ci/ci-repos.init.gradle
 
       - name: 构建 APK
