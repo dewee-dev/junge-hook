@@ -139,12 +139,16 @@ jobs:
           set -euo pipefail
           mkdir -p out
           : > rows.md
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          APKSIGNER="$SDK/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
+          [ -x "$APKSIGNER" ] || APKSIGNER="$(ls -d "$SDK"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)"
           count=0
           while IFS= read -r f; do
             base=$(basename "$f")
             # 没配签名密钥时 release 是未签名包，而 outputFileName 覆盖会丢掉 AGP
             # 默认的 -unsigned 后缀 —— 装不上却看不出原因，这里补回来。
-            if unzip -l "$f" 2>/dev/null | grep -qE 'META-INF/[^/]+\.(RSA|DSA|EC)'; then
+            # 用 apksigner 判断：minSdk 26 的包走 v2/v3 签名，没有 META-INF/*.RSA。
+            if "$APKSIGNER" verify "$f" > /dev/null 2>&1; then
               out_name="$base"; state="已签名"
             else
               out_name="${base%.apk}-unsigned.apk"; state="**未签名**"
