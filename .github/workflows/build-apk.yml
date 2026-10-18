@@ -21,12 +21,8 @@ on:
         description: '构建前运行单元测试'
         type: boolean
         default: false
-      create_release:
-        description: '构建成功后创建 GitHub Release（附 APK）'
-        type: boolean
-        default: false
 
-# 创建 Release 需要写权限；其余步骤只用读权限
+# 发布 Release 需要写权限；其余步骤只用读权限
 permissions:
   contents: write
 
@@ -184,19 +180,44 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: 创建 Release
-        if: inputs.create_release
+      - name: 发布到 Releases
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_TYPE: ${{ inputs.build_type }}
           VERSION_NAME: ${{ inputs.version_name }}
+          # 日期用 UTC。想按本地日期命名就把 +%Y.%m.%d 前加 TZ，例如
+          # DATE=$(TZ='Asia/Shanghai' date +%Y.%m.%d)
         run: |
           set -euo pipefail
-          TAG="build-${GITHUB_RUN_NUMBER}"
+          DATE=$(date -u +%Y.%m.%d)
+          TAG="$DATE"
+
+          # 同一天多次构建：tag 已存在就追加序号，避免发布失败
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            n=2
+            while gh release view "${TAG}-${n}" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; do
+              n=$((n + 1))
+            done
+            TAG="${TAG}-${n}"
+          fi
+
           VER="${VERSION_NAME:-$(grep -oP 'versionName "\K[^"]+' app/build.gradle | head -1)}"
-          gh release create "$TAG" \
-            --target "$GITHUB_SHA" \
-            --title "v${VER} (${BUILD_TYPE}) #${GITHUB_RUN_NUMBER}" \
-            --notes "手动构建产物，基于提交 ${GITHUB_SHA::7}。" \
-            out/*.apk
+          {
+            echo "构建类型：\`${BUILD_TYPE}\` ・ 提交：\`${GITHUB_SHA::7}\` ・ 触发：@${GITHUB_ACTOR}"
+            echo
+            echo "| 文件 | 大小 | 签名 | SHA256 |"
+            echo "| --- | --- | --- | --- |"
+            cat rows.md
+          } > release-notes.md
+
+          ARGS=(--target "$GITHUB_SHA" --title "v${VER} (${TAG})" --notes-file release-notes.md)
+          # debug 包标成 pre-release，不占用 Latest
+          if [ "$BUILD_TYPE" = "debug" ]; then
+            ARGS+=(--prerelease)
+          else
+            ARGS+=(--latest)
+          fi
+
+          gh release create "$TAG" "${ARGS[@]}" out/*.apk
+          echo "::notice title=Release 已发布::https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
           echo "::notice title=Release 已创建::https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"

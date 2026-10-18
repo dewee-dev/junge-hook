@@ -82,9 +82,12 @@ keyPassword=***
 | 构建类型 | `both`（debug + release）/ `debug` / `release` |
 | 版本名 | 留空沿用 `app/build.gradle` 的 `versionName` |
 | 运行单元测试 | 构建前跑 `:app:testDebugUnitTest` |
-| 创建 Release | 构建成功后建 tag 并把 APK 挂上去 |
 
-产物在本次运行页面的 **Artifacts** 里下载。没配签名密钥时 release 包会自动改名成
+构建成功后 **自动发布到 Releases**，tag 用构建日期（UTC，如 `2026.10.18`）。
+同一天多次构建会依次加后缀 `2026.10.18-2`、`2026.10.18-3`，不会互相覆盖。
+`debug` 单独构建时标记为 pre-release，不占用 Latest。
+
+产物同时在本次运行页面的 **Artifacts** 里下载（保留 30 天）。没配签名密钥时 release 包会自动改名成
 `*-release-unsigned.apk`（未签名包装不上，免得白下一趟）。
 
 要让 CI 产出可直接安装的 release 包，在 **Settings → Secrets and variables → Actions**
