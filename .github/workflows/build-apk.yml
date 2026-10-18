@@ -116,18 +116,8 @@ jobs:
 
       - name: 运行单元测试
         if: inputs.run_tests
-        run: gradle :app:testDebugUnitTest --stacktrace
-
-      - name: 探测 Maven 仓库
-        continue-on-error: true
-        run: |
-          P="com/google/dagger/hilt/android/com.google.dagger.hilt.android.gradle.plugin/2.52/com.google.dagger.hilt.android.gradle.plugin-2.52.pom"
-          for base in https://maven.aliyun.com/repository/gradle-plugin https://maven.aliyun.com/repository/public https://repo1.maven.org/maven2 https://plugins.gradle.org/m2; do
-            printf "%-55s " "$base"
-            curl -sS -o /dev/null -w "code=%{http_code} t=%{time_total}s\n" -L --max-time 30 "$base/$P" || echo "curl exit=$?"
-          done
-          printf "%-55s " "xposed api 82 @aliyun/public"
-          curl -sS -o /dev/null -w "code=%{http_code}\n" -L --max-time 30 "https://maven.aliyun.com/repository/public/de/robv/android/xposed/api/82/api-82.pom" || echo "curl exit=$?"
+        run: gradle :app:testDebugUnitTest --stacktrace \
+            --init-script .github/ci/ci-repos.init.gradle
 
       - name: 构建 APK
         env:
@@ -139,7 +129,8 @@ jobs:
             *)       TASKS=":app:assembleDebug :app:assembleRelease" ;;
           esac
           echo "执行：gradle ${TASKS}"
-          gradle ${TASKS} --stacktrace --info
+          gradle ${TASKS} --stacktrace --info \
+            --init-script .github/ci/ci-repos.init.gradle
 
       - name: 收集产物
         id: collect

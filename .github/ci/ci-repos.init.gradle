@@ -1,0 +1,20 @@
+// CI 专用初始化脚本：把官方仓库排到国内镜像之前。
+//
+// 背景：settings.gradle 里 aliyun 镜像排在最前（本地构建更快），
+// 但 GitHub runner 上 aliyun 对「未缓存的构件」会偶发 502 Bad Gateway，
+// Gradle 遇到 5xx 直接判定该仓库不可用，最终报成
+// “Plugin [id: com.google.dagger.hilt.android] was not found”。
+//
+// beforeSettings 在 settings.gradle 求值之前执行，这里先注册官方仓库，
+// settings.gradle 里的镜像会追加在后面，自动降级为兜底。
+beforeSettings { settings ->
+    settings.pluginManagement.repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    settings.dependencyResolutionManagement.repositories {
+        google()
+        mavenCentral()
+    }
+}
