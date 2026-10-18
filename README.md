@@ -73,6 +73,34 @@ keyPassword=***
 
 没有该文件时构建会跳过签名，方便别人 clone 后直接跑 debug。
 
+### 云端构建（GitHub Actions）
+
+不用本地装 SDK，在仓库 **Actions → Build APK → Run workflow** 手动触发即可。
+
+| 输入 | 说明 |
+|---|---|
+| 构建类型 | `both`（debug + release）/ `debug` / `release` |
+| 版本名 | 留空沿用 `app/build.gradle` 的 `versionName` |
+| 运行单元测试 | 构建前跑 `:app:testDebugUnitTest` |
+| 创建 Release | 构建成功后建 tag 并把 APK 挂上去 |
+
+产物在本次运行页面的 **Artifacts** 里下载。没配签名密钥时 release 包会自动改名成
+`*-release-unsigned.apk`（未签名包装不上，免得白下一趟）。
+
+要让 CI 产出可直接安装的 release 包，在 **Settings → Secrets and variables → Actions**
+添加四个 secret：
+
+| Secret | 内容 |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | 密钥库的 base64（`base64 -w0 xxx.jks`） |
+| `ANDROID_KEYSTORE_PASSWORD` | 密钥库口令 |
+| `ANDROID_KEY_ALIAS` | 密钥别名 |
+| `ANDROID_KEY_PASSWORD` | 密钥口令 |
+
+> CI 用 `.github/ci/ci-repos.init.gradle` 把官方仓库排到 aliyun 镜像之前：
+> runner 上镜像对未缓存构件会偶发 502，Gradle 遇到就直接判定仓库不可用，
+> 表现为 `Plugin ... was not found`。本地构建不受影响。
+
 ---
 
 ## 使用
